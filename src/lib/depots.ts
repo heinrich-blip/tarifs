@@ -8,7 +8,7 @@ export interface Depot {
   name: string;
   latitude: number;
   longitude: number;
-  type: "depot" | "warehouse" | "market" | "border";
+  type: "depot" | "warehouse" | "market" | "border" | "farm";
   country: "Zimbabwe" | "South Africa" | "Mozambique" | "Zambia";
   radius: number; // Geofence radius in meters
 }
@@ -29,7 +29,7 @@ export const DEPOTS: Depot[] = [
     name: "BV",
     latitude: -19.18134742,
     longitude: 32.6994949,
-    type: "depot",
+    type: "farm",
     country: "Zimbabwe",
     radius: 500,
   },
@@ -38,7 +38,7 @@ export const DEPOTS: Depot[] = [
     name: "CBC",
     latitude: -20.08999732,
     longitude: 32.62297647,
-    type: "depot",
+    type: "farm",
     country: "Zimbabwe",
     radius: 500,
   },

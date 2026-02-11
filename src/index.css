@@ -45,6 +45,8 @@
     --status-pending-bg: 45 93% 95%;
     --status-delivered: 172 66% 50%;
     --status-delivered-bg: 172 66% 95%;
+    --status-arrived: 25 95% 53%;
+    --status-arrived-bg: 25 95% 95%;
 
     /* Cargo Type Colors */
     --cargo-bv: 262 83% 58%;
@@ -142,6 +144,11 @@
   .status-delivered {
     background-color: hsl(var(--status-delivered-bg));
     color: hsl(var(--status-delivered));
+  }
+
+  .status-arrived {
+    background-color: hsl(var(--status-arrived-bg));
+    color: hsl(var(--status-arrived));
   }
 
   .kpi-card {

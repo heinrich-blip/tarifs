@@ -176,6 +176,9 @@ export default function DeliveriesDashboardPage() {
   // Track when trucks enter geofences (for drive-through detection)
   // Key: "loadId-origin" or "loadId-destination", Value: entry timestamp
   const geofenceEntryRef = useRef<Map<string, Date>>(new Map());
+  // Track stationary time within geofences
+  // Key: "loadId-destination", Value: {entryTime: Date, stationaryStartTime: Date | null}
+  const stationaryTrackingRef = useRef<Map<string, { entryTime: Date; stationaryStartTime: Date | null }>>(new Map());
   const geofenceUpdateMutation = useGeofenceLoadUpdate();
 
   const [organisationId, setOrganisationId] = useState<number | null>(() => {
@@ -500,7 +503,49 @@ export default function DeliveriesDashboardPage() {
           if (justEnteredDest && !geofenceEntryRef.current.has(destEntryKey)) {
             // Record entry time for pass-through detection
             geofenceEntryRef.current.set(destEntryKey, timestamp);
+            // Initialize stationary tracking
+            stationaryTrackingRef.current.set(destEntryKey, { entryTime: timestamp, stationaryStartTime: null });
             console.log(`[Geofence] Truck ${vehicleKey} ENTERED destination geofence ${destinationDepot.name} for load ${load.load_id}`);
+          }
+        }
+
+        // Track stationary time within destination geofence
+        if (load.status === "in-transit" && isAtDestination) {
+          const tracking = stationaryTrackingRef.current.get(destEntryKey);
+          if (tracking) {
+            const isStationary = asset.speedKmH === 0 || asset.speedKmH < 1; // Consider speeds < 1 km/h as stationary
+            
+            if (isStationary) {
+              if (!tracking.stationaryStartTime) {
+                // Just became stationary
+                stationaryTrackingRef.current.set(destEntryKey, { ...tracking, stationaryStartTime: timestamp });
+                console.log(`[Geofence] Truck ${vehicleKey} became STATIONARY at ${destinationDepot.name} for load ${load.load_id}`);
+              } else {
+                // Check if stationary for 5+ minutes
+                const stationaryDurationMs = timestamp.getTime() - tracking.stationaryStartTime.getTime();
+                const stationaryDurationMinutes = stationaryDurationMs / (1000 * 60);
+                
+                if (stationaryDurationMinutes >= 5 && !load.actual_offloading_arrival) {
+                  // Trigger arrival event after 5 minutes of being stationary
+                  const eventKey = `${load.id}-offloading_arrival-stationary-${dateKey}`;
+                  if (!processedEventsRef.current.has(eventKey)) {
+                    console.log(`[Geofence] Truck ${vehicleKey} STATIONARY for ${Math.round(stationaryDurationMinutes)} minutes at ${destinationDepot.name} - TRIGGERING ARRIVAL for load ${load.load_id}`);
+                    processedEventsRef.current.add(eventKey);
+                    geofenceUpdateMutation.mutate({
+                      loadId: load.id,
+                      eventType: "offloading_arrival" as GeofenceEventType,
+                      timestamp,
+                    });
+                  }
+                }
+              }
+            } else {
+              // No longer stationary, reset stationary start time
+              if (tracking.stationaryStartTime) {
+                stationaryTrackingRef.current.set(destEntryKey, { ...tracking, stationaryStartTime: null });
+                console.log(`[Geofence] Truck ${vehicleKey} no longer stationary at ${destinationDepot.name} for load ${load.load_id}`);
+              }
+            }
           }
         }
 
@@ -537,6 +582,7 @@ export default function DeliveriesDashboardPage() {
             }
             // Clear the entry record after processing the pass-through
             geofenceEntryRef.current.delete(destEntryKey);
+            stationaryTrackingRef.current.delete(destEntryKey);
           }
         }
       }
@@ -1350,7 +1396,12 @@ function LoadCard({
               </div>
               <div>
                 <span className="font-bold text-slate-800 dark:text-slate-200">Load {load.load_id}</span>
-                <div className="mt-0.5"><StatusBadge status={load.status} /></div>
+                <div className="mt-0.5"><StatusBadge 
+                  status={load.status} 
+                  distanceRemaining={load.progressData?.distanceRemaining}
+                  hasArrivalTime={!!load.actual_offloading_arrival}
+                  hasDepartureTime={!!load.actual_offloading_departure}
+                /></div>
               </div>
             </div>
           </div>
