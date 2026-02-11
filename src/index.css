@@ -1,0 +1,226 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+@layer base {
+  :root {
+    --background: 210 20% 98%;
+    --foreground: 222 47% 11%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+
+    --primary: 222 47% 20%;
+    --primary-foreground: 210 40% 98%;
+
+    --secondary: 215 20% 94%;
+    --secondary-foreground: 222 47% 20%;
+
+    --muted: 215 20% 94%;
+    --muted-foreground: 215 16% 47%;
+
+    --accent: 199 89% 48%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 214 32% 91%;
+    --input: 214 32% 91%;
+    --ring: 222 47% 20%;
+
+    --radius: 0.75rem;
+
+    /* Status Colors */
+    --status-scheduled: 152 69% 40%;
+    --status-scheduled-bg: 152 69% 95%;
+    --status-in-transit: 38 92% 50%;
+    --status-in-transit-bg: 38 92% 95%;
+    --status-pending: 45 93% 47%;
+    --status-pending-bg: 45 93% 95%;
+    --status-delivered: 172 66% 50%;
+    --status-delivered-bg: 172 66% 95%;
+
+    /* Cargo Type Colors */
+    --cargo-bv: 262 83% 58%;
+    --cargo-cbc: 199 89% 48%;
+    --cargo-retail: 340 82% 52%;
+    --cargo-vansales: 25 95% 53%;
+
+    /* Sidebar */
+    --sidebar-background: 222 47% 11%;
+    --sidebar-foreground: 210 40% 90%;
+    --sidebar-primary: 199 89% 48%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 222 47% 18%;
+    --sidebar-accent-foreground: 210 40% 98%;
+    --sidebar-border: 222 47% 18%;
+    --sidebar-ring: 199 89% 48%;
+
+    /* Gradients */
+    --gradient-primary: linear-gradient(135deg, hsl(222 47% 11%) 0%, hsl(222 47% 20%) 100%);
+    --gradient-accent: linear-gradient(135deg, hsl(199 89% 48%) 0%, hsl(199 89% 38%) 100%);
+    --gradient-success: linear-gradient(135deg, hsl(152 69% 40%) 0%, hsl(152 69% 30%) 100%);
+  }
+
+  .dark {
+    --background: 222 47% 6%;
+    --foreground: 210 40% 98%;
+
+    --card: 222 47% 9%;
+    --card-foreground: 210 40% 98%;
+
+    --popover: 222 47% 9%;
+    --popover-foreground: 210 40% 98%;
+
+    --primary: 199 89% 48%;
+    --primary-foreground: 222 47% 11%;
+
+    --secondary: 222 47% 15%;
+    --secondary-foreground: 210 40% 98%;
+
+    --muted: 222 47% 15%;
+    --muted-foreground: 215 20% 65%;
+
+    --accent: 199 89% 48%;
+    --accent-foreground: 222 47% 11%;
+
+    --destructive: 0 63% 31%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 222 47% 18%;
+    --input: 222 47% 18%;
+    --ring: 199 89% 48%;
+
+    --sidebar-background: 222 47% 6%;
+    --sidebar-foreground: 210 40% 90%;
+    --sidebar-primary: 199 89% 48%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 222 47% 12%;
+    --sidebar-accent-foreground: 210 40% 98%;
+    --sidebar-border: 222 47% 12%;
+    --sidebar-ring: 199 89% 48%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    font-family: 'Inter', system-ui, sans-serif;
+  }
+}
+
+@layer components {
+  .status-badge {
+    @apply inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium transition-all duration-200;
+  }
+
+  .status-scheduled {
+    background-color: hsl(var(--status-scheduled-bg));
+    color: hsl(var(--status-scheduled));
+  }
+
+  .status-in-transit {
+    background-color: hsl(var(--status-in-transit-bg));
+    color: hsl(var(--status-in-transit));
+  }
+
+  .status-pending {
+    background-color: hsl(var(--status-pending-bg));
+    color: hsl(var(--status-pending));
+  }
+
+  .status-delivered {
+    background-color: hsl(var(--status-delivered-bg));
+    color: hsl(var(--status-delivered));
+  }
+
+  .kpi-card {
+    @apply relative overflow-hidden rounded-xl border bg-card p-6 shadow-sm transition-all duration-300 hover:shadow-md;
+  }
+
+  .kpi-card::before {
+    content: '';
+    @apply absolute top-0 left-0 w-1 h-full;
+  }
+
+  .kpi-card-scheduled::before {
+    background: hsl(var(--status-scheduled));
+  }
+
+  .kpi-card-transit::before {
+    background: hsl(var(--status-in-transit));
+  }
+
+  .kpi-card-pending::before {
+    background: hsl(var(--status-pending));
+  }
+
+  .kpi-card-delivered::before {
+    background: hsl(var(--status-delivered));
+  }
+
+  .load-card {
+    @apply rounded-lg border bg-card p-3 shadow-sm transition-all duration-200 hover:shadow-md hover:border-accent/50 cursor-pointer;
+  }
+
+  .calendar-day {
+    @apply flex flex-col gap-2 p-3 min-h-[180px] border-r border-b bg-card;
+  }
+
+  .calendar-day:last-child {
+    @apply border-r-0;
+  }
+}
+
+@layer utilities {
+  .glass {
+    @apply bg-white/80 backdrop-blur-lg;
+  }
+
+  .text-gradient {
+    background: var(--gradient-accent);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .animate-fade-in {
+    animation: fadeIn 0.3s ease-out;
+  }
+
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .animate-slide-in {
+    animation: slideIn 0.3s ease-out;
+  }
+
+  @keyframes slideIn {
+    from {
+      opacity: 0;
+      transform: translateX(-10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+}
