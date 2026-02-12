@@ -2,66 +2,61 @@ import { MainLayout } from "@/components/layout/MainLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
-import
-  {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
-  } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import
-  {
-    getActiveLoadsForTracking,
-    type ActiveLoadForTracking,
-  } from "@/lib/api";
+import {
+  getActiveLoadsForTracking,
+  type ActiveLoadForTracking,
+} from "@/lib/api";
 import { DEPOTS } from "@/lib/depots";
-import
-  {
-    authenticate,
-    clearAuth,
-    formatLastConnected,
-    getAssetsWithPositions,
-    getGeofences,
-    getHeadingDirection,
-    getStatusColor,
-    isAuthenticated,
-    type TelematicsAsset,
-    type TelematicsGeofence,
-  } from "@/lib/telematicsGuru";
+import {
+  authenticate,
+  clearAuth,
+  formatLastConnected,
+  getAssetsWithPositions,
+  getGeofences,
+  getHeadingDirection,
+  getStatusColor,
+  isAuthenticated,
+  type TelematicsAsset,
+  type TelematicsGeofence,
+} from "@/lib/telematicsGuru";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
-import
-  {
-    AlertCircle,
-    Clock, // Add Clock icon
-    Loader2,
-    MapPin,
-    Navigation, // Add Navigation icon
-    Package,
-    RefreshCw,
-    Route, // Add Route icon
-    Settings,
-    Target,
-    Truck,
-    X,
-  } from "lucide-react";
+import {
+  AlertCircle,
+  Clock,
+  Loader2,
+  MapPin,
+  Navigation,
+  Package,
+  RefreshCw,
+  Route,
+  Settings,
+  Target,
+  Truck,
+  X,
+} from "lucide-react";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import
-  {
-    Circle,
-    MapContainer,
-    Marker,
-    Polyline, // Add Polyline import
-    Popup,
-    TileLayer,
-    Tooltip,
-    useMap,
-  } from "react-leaflet";
+import {
+  Circle,
+  MapContainer,
+  Marker,
+  Polyline,
+  Popup,
+  TileLayer,
+  Tooltip,
+  useMap,
+} from "react-leaflet";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
 
@@ -84,7 +79,7 @@ function calculateDistance(
   lat2: number,
   lon2: number,
 ): number {
-  const R = 6371; // Earth's radius in kilometers
+  const R = 6371;
   const dLat = ((lat2 - lat1) * Math.PI) / 180;
   const dLon = ((lon2 - lon1) * Math.PI) / 180;
   const a =
@@ -97,7 +92,6 @@ function calculateDistance(
   return R * c;
 }
 
-// Format distance for display
 function formatDistance(km: number): string {
   if (km < 1) {
     return `${Math.round(km * 1000)} m`;
@@ -105,7 +99,6 @@ function formatDistance(km: number): string {
   return `${km.toFixed(1)} km`;
 }
 
-// Format duration for display
 function formatDuration(minutes: number): string {
   if (minutes < 60) {
     return `${Math.round(minutes)} min`;
@@ -115,7 +108,6 @@ function formatDuration(minutes: number): string {
   return `${hours}h ${remainingMinutes}m`;
 }
 
-// Calculate ETA between vehicle and geofence
 function calculateETA(
   vehicle: TelematicsAsset,
   geofence: TelematicsGeofence,
@@ -129,17 +121,13 @@ function calculateETA(
   speed: number;
   isMoving: boolean;
 } {
-  // Get vehicle position
   const vehicleLat = vehicle.lastLatitude;
   const vehicleLng = vehicle.lastLongitude;
-
-  // Get geofence position
   const geofenceLat =
     geofence.latitude ?? geofence.centerLatitude ?? geofence.lat;
   const geofenceLng =
     geofence.longitude ?? geofence.centerLongitude ?? geofence.lng;
 
-  // Check if we have valid coordinates
   if (!vehicleLat || !vehicleLng || !geofenceLat || !geofenceLng) {
     return {
       eta: null,
@@ -153,7 +141,6 @@ function calculateETA(
     };
   }
 
-  // Calculate distance
   const distance = calculateDistance(
     vehicleLat,
     vehicleLng,
@@ -161,19 +148,11 @@ function calculateETA(
     geofenceLng,
   );
   const distanceFormatted = formatDistance(distance);
-
-  // Calculate travel time
   const speed = vehicle.speedKmH || 0;
   const isMoving = speed > 0 || vehicle.inTrip;
-
-  // Use average speed if vehicle is stationary
-  const effectiveSpeed = isMoving ? Math.max(speed, 20) : 50; // 50 km/h average if stationary
-
-  // Calculate duration in minutes
+  const effectiveSpeed = isMoving ? Math.max(speed, 20) : 50;
   const durationMinutes = (distance / effectiveSpeed) * 60;
   const durationFormatted = formatDuration(durationMinutes);
-
-  // Calculate ETA
   const now = new Date();
   const eta = new Date(now.getTime() + durationMinutes * 60000);
   const etaFormatted = eta.toLocaleTimeString([], {
@@ -193,19 +172,14 @@ function calculateETA(
   };
 }
 
-// Create vehicle marker icon - shows load indicator if vehicle has active delivery
 function createVehicleIcon(
   asset: TelematicsAsset,
   hasActiveLoad = false,
 ): L.DivIcon {
   const isStationary = asset.speedKmH < 5 && !asset.inTrip;
-  // Use red for stationary/parked vehicles, otherwise use the default status color
   const color = isStationary ? "#ef4444" : getStatusColor(asset);
   const rotation = asset.heading || 0;
-
-  // Get fleet number from asset name or code
   const fleetNumber = asset.name || asset.code || `${asset.id}`;
-  // Truncate if too long
   const displayNumber =
     fleetNumber.length > 8 ? fleetNumber.substring(0, 7) + "…" : fleetNumber;
 
@@ -217,19 +191,16 @@ function createVehicleIcon(
   `
     : "";
 
-  // Status indicator: green pulsing dot for moving only (stationary shows solid red icon)
   const statusIndicator = asset.inTrip
     ? `<div style="position:absolute;top:-4px;right:-4px;width:12px;height:12px;border-radius:50%;background:#22c55e;border:2px solid white;animation:pulse 1.5s infinite;"></div>`
     : "";
 
-  // Arrow icon for moving vehicles, solid red circle for stationary
   const iconContent = isStationary
-    ? "" // No arrow, just solid red circle
+    ? ""
     : `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M12 2L12 22M12 2L5 9M12 2L19 9"/>
-          </svg>`;
+        <path d="M12 2L12 22M12 2L5 9M12 2L19 9"/>
+      </svg>`;
 
-  // Fleet number label below the icon - clean professional styling
   const fleetLabel = `
     <div style="position:absolute;top:30px;left:50%;transform:translateX(-50%);background:white;color:#1e293b;font-size:10px;padding:2px 8px;border-radius:4px;white-space:nowrap;font-weight:700;letter-spacing:0.2px;box-shadow:0 1px 3px rgba(0,0,0,0.2);border:1.5px solid ${color};">
       ${displayNumber}
@@ -259,7 +230,6 @@ function createVehicleIcon(
   });
 }
 
-// Fit bounds component
 function FitBounds({ assets }: { assets: TelematicsAsset[] }) {
   const map = useMap();
 
@@ -289,14 +259,13 @@ export default function LiveTrackingPage() {
   const [showAuthDialog, setShowAuthDialog] = useState(false);
   const [showSettingsDialog, setShowSettingsDialog] = useState(false);
   const [autoRefresh, setAutoRefresh] = useState(true);
-  const [refreshInterval, setRefreshInterval] = useState(10); // 10 seconds for real-time tracking
+  const [refreshInterval, setRefreshInterval] = useState(10);
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
   const [showLoadsPanel, setShowLoadsPanel] = useState(true);
   const [geofences, setGeofences] = useState<TelematicsGeofence[]>([]);
   const [showGeofences, setShowGeofences] = useState(true);
   const [showDepots, setShowDepots] = useState(true);
-
-  // Route/ETA Calculator state
+  const [maximizeMap, setMaximizeMap] = useState(false);
   const [showRouteCalculator, setShowRouteCalculator] = useState(false);
   const [selectedVehicleId, setSelectedVehicleId] = useState<number | null>(
     null,
@@ -328,7 +297,7 @@ export default function LiveTrackingPage() {
     localStorage.getItem("tg_remember") === "true",
   );
 
-  // Auto-authenticate on mount if credentials are saved
+  // Auto-authenticate on mount
   useEffect(() => {
     const autoLogin = async () => {
       if (isAuthenticated()) {
@@ -341,9 +310,6 @@ export default function LiveTrackingPage() {
       const savedRemember = localStorage.getItem("tg_remember") === "true";
 
       if (savedRemember && savedUsername && savedPassword) {
-        console.log(
-          "[LiveTracking] Auto-authenticating with saved credentials...",
-        );
         setAuthLoading(true);
         const success = await authenticate(savedUsername, atob(savedPassword));
         if (success) {
@@ -370,16 +336,12 @@ export default function LiveTrackingPage() {
     setError(null);
 
     try {
-      // Fetch telematics data, active loads, and geofences in parallel
       const [telematicsData, loadsResponse, geofenceData] = await Promise.all([
         getAssetsWithPositions(parseInt(organisationId)),
         getActiveLoadsForTracking().catch(() => ({
           data: { activeLoads: [] },
         })),
-        getGeofences(parseInt(organisationId)).catch(() => {
-          // Silently ignore - geofences may not be available for this organisation
-          return [];
-        }),
+        getGeofences(parseInt(organisationId)).catch(() => []),
       ]);
 
       setAssets(telematicsData);
@@ -400,14 +362,12 @@ export default function LiveTrackingPage() {
     }
   }, [authenticated, organisationId]);
 
-  // Create a map of telematics asset ID to load info
   const assetToLoadMap = useMemo(() => {
     const map = new Map<string | number, ActiveLoadForTracking>();
     activeLoads.forEach((load) => {
       if (load.vehicle?.telematicsAssetId) {
         map.set(load.vehicle.telematicsAssetId, load);
       }
-      // Also try matching by vehicle name/code
       if (load.vehicle?.registration) {
         map.set(load.vehicle.registration.toLowerCase(), load);
       }
@@ -415,14 +375,11 @@ export default function LiveTrackingPage() {
     return map;
   }, [activeLoads]);
 
-  // Get load for an asset
   const getLoadForAsset = useCallback(
     (asset: TelematicsAsset): ActiveLoadForTracking | null => {
-      // Try by telematics ID first
       if (assetToLoadMap.has(asset.id)) {
         return assetToLoadMap.get(asset.id)!;
       }
-      // Try by name/code match
       const assetName = (asset.name || asset.code || "").toLowerCase();
       if (assetName && assetToLoadMap.has(assetName)) {
         return assetToLoadMap.get(assetName)!;
@@ -451,7 +408,6 @@ export default function LiveTrackingPage() {
     setEtaResult(result);
   }, [selectedVehicleId, selectedGeofenceId, assets, geofences]);
 
-  // Get selected vehicle and geofence for route display
   const selectedVehicle = useMemo(
     () => assets.find((a) => a.id === selectedVehicleId),
     [assets, selectedVehicleId],
@@ -523,7 +479,6 @@ export default function LiveTrackingPage() {
     return () => clearInterval(intervalId);
   }, [autoRefresh, authenticated, refreshInterval, fetchAssets]);
 
-  // Compute fleet statistics
   const stats = useMemo(() => {
     const moving = assets.filter((a) => a.speedKmH >= 5 || a.inTrip).length;
     const stationary = assets.filter((a) => a.speedKmH < 5 && !a.inTrip).length;
@@ -535,7 +490,6 @@ export default function LiveTrackingPage() {
     return { total: assets.length, moving, stationary, offline };
   }, [assets]);
 
-  // Default map center (Zimbabwe)
   const defaultCenter: [number, number] = [-19.0, 31.0];
 
   return (
@@ -580,7 +534,7 @@ export default function LiveTrackingPage() {
         </div>
 
         {/* Stats Cards */}
-        {authenticated && (
+        {authenticated && !maximizeMap && (
           <div className="grid gap-4 md:grid-cols-5">
             <Card>
               <CardContent className="flex items-center gap-3 p-4">
@@ -598,11 +552,11 @@ export default function LiveTrackingPage() {
             <Card>
               <CardContent className="flex items-center gap-3 p-4">
                 <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-lg">
-                  <Truck className="w-5 h-5 text-green-600" />
+                  <Truck className="w-5 h-5 text-green-600 dark:text-green-400" />
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Moving</p>
-                  <p className="text-2xl font-bold text-green-600">
+                  <p className="text-2xl font-bold text-green-600 dark:text-green-400">
                     {stats.moving}
                   </p>
                 </div>
@@ -611,11 +565,11 @@ export default function LiveTrackingPage() {
             <Card>
               <CardContent className="flex items-center gap-3 p-4">
                 <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
-                  <MapPin className="w-5 h-5 text-blue-600" />
+                  <MapPin className="w-5 h-5 text-blue-600 dark:text-blue-400" />
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Stationary</p>
-                  <p className="text-2xl font-bold text-blue-600">
+                  <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">
                     {stats.stationary}
                   </p>
                 </div>
@@ -624,11 +578,11 @@ export default function LiveTrackingPage() {
             <Card>
               <CardContent className="flex items-center gap-3 p-4">
                 <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-lg">
-                  <Package className="w-5 h-5 text-purple-600" />
+                  <Package className="w-5 h-5 text-purple-600 dark:text-purple-400" />
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Active Loads</p>
-                  <p className="text-2xl font-bold text-purple-600">
+                  <p className="text-2xl font-bold text-purple-600 dark:text-purple-400">
                     {activeLoads.length}
                   </p>
                 </div>
@@ -651,7 +605,7 @@ export default function LiveTrackingPage() {
         )}
 
         {/* Route/ETA Calculator Panel */}
-        {authenticated && geofences.length > 0 && (
+        {authenticated && geofences.length > 0 && !maximizeMap && (
           <Card className="border-indigo-200 dark:border-indigo-800">
             <CardHeader className="flex flex-row items-center justify-between py-3">
               <CardTitle className="flex items-center gap-2 text-lg">
@@ -669,7 +623,6 @@ export default function LiveTrackingPage() {
             {showRouteCalculator && (
               <CardContent className="pt-0">
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                  {/* Vehicle Selector */}
                   <div className="space-y-2">
                     <Label className="text-sm font-medium flex items-center gap-2">
                       <Truck className="w-4 h-4" />
@@ -696,7 +649,6 @@ export default function LiveTrackingPage() {
                     </select>
                   </div>
 
-                  {/* Destination Geofence Selector */}
                   <div className="space-y-2">
                     <Label className="text-sm font-medium flex items-center gap-2">
                       <Target className="w-4 h-4" />
@@ -723,7 +675,6 @@ export default function LiveTrackingPage() {
                     </select>
                   </div>
 
-                  {/* ETA Result */}
                   {etaResult && (
                     <>
                       <div className="space-y-2">
@@ -759,7 +710,6 @@ export default function LiveTrackingPage() {
                     </>
                   )}
 
-                  {/* No selection message */}
                   {(!selectedVehicleId || !selectedGeofenceId) && (
                     <div className="md:col-span-2 flex items-center justify-center p-4 rounded-lg bg-muted/50">
                       <p className="text-sm text-muted-foreground">
@@ -769,7 +719,6 @@ export default function LiveTrackingPage() {
                   )}
                 </div>
 
-                {/* Clear Selection Button */}
                 {(selectedVehicleId || selectedGeofenceId) && (
                   <div className="mt-4 flex justify-end">
                     <Button
@@ -806,7 +755,14 @@ export default function LiveTrackingPage() {
               Fleet Map
             </CardTitle>
             <div className="flex items-center gap-4">
-              {/* Depot Toggle */}
+              <Button
+                variant={maximizeMap ? "default" : "outline"}
+                size="sm"
+                onClick={() => setMaximizeMap((v) => !v)}
+                className="gap-2"
+              >
+                {maximizeMap ? "Exit Full Screen" : "Full Screen"}
+              </Button>
               <Button
                 variant={showDepots ? "default" : "outline"}
                 size="sm"
@@ -816,7 +772,6 @@ export default function LiveTrackingPage() {
                 <MapPin className="w-4 h-4" />
                 Depots ({DEPOTS.length})
               </Button>
-              {/* Geofence Toggle */}
               {authenticated && geofences.length > 0 && (
                 <Button
                   variant={showGeofences ? "default" : "outline"}
@@ -852,11 +807,11 @@ export default function LiveTrackingPage() {
                 </Button>
               </div>
             ) : loading && assets.length === 0 ? (
-              <div className="h-[500px] flex items-center justify-center">
+              <div className={`${maximizeMap ? "h-[calc(100vh-160px)]" : "h-[500px]"} flex items-center justify-center`}>
                 <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
               </div>
             ) : (
-              <div className="h-[500px] rounded-b-lg overflow-hidden">
+              <div className={`${maximizeMap ? "h-[calc(100vh-160px)]" : "h-[500px]"} rounded-b-lg overflow-hidden`}>
                 <MapContainer
                   center={defaultCenter}
                   zoom={7}
@@ -879,7 +834,7 @@ export default function LiveTrackingPage() {
                         geofence.longitude ??
                         geofence.centerLongitude ??
                         geofence.lng;
-                      const radius = geofence.radius || 500; // Default 500m radius
+                      const radius = geofence.radius || 500;
 
                       if (!lat || !lng) return null;
 
@@ -910,7 +865,6 @@ export default function LiveTrackingPage() {
                   {/* Fixed Depot Markers */}
                   {showDepots &&
                     DEPOTS.map((depot) => {
-                      // Create a custom depot icon
                       const depotIcon = L.divIcon({
                         className: "depot-marker",
                         html: `
@@ -938,7 +892,6 @@ export default function LiveTrackingPage() {
 
                       return (
                         <React.Fragment key={depot.id}>
-                          {/* Depot geofence circle */}
                           <Circle
                             center={[depot.latitude, depot.longitude]}
                             radius={depot.radius}
@@ -950,7 +903,6 @@ export default function LiveTrackingPage() {
                               dashArray: '5, 5',
                             }}
                           />
-                          {/* Depot marker */}
                           <Marker
                             position={[depot.latitude, depot.longitude]}
                             icon={depotIcon}
@@ -980,7 +932,7 @@ export default function LiveTrackingPage() {
                       );
                     })}
 
-                  {/* Route Line between selected vehicle and geofence */}
+                  {/* Route Line */}
                   {selectedVehicle &&
                     selectedGeofence &&
                     selectedVehicle.lastLatitude &&
@@ -1077,7 +1029,6 @@ export default function LiveTrackingPage() {
                                 `Vehicle ${asset.id}`}
                             </div>
 
-                            {/* Load Info Section */}
                             {load && (
                               <div className="mb-3 p-2 bg-purple-50 dark:bg-purple-900/20 rounded-lg border border-purple-200 dark:border-purple-800">
                                 <div className="flex items-center gap-1 text-purple-700 dark:text-purple-400 font-semibold text-sm mb-1">

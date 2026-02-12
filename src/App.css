@@ -1,42 +1,51 @@
 #root {
-  max-width: 1280px;
+  width: 100%;
+  max-width: 1600px; /* Increased from 1280px to better accommodate dashboard layouts (e.g., sidebar + wide tables/charts) */
   margin: 0 auto;
-  padding: 2rem;
-  text-align: center;
-}
-
-.logo {
-  height: 6em;
-  padding: 1.5em;
-  will-change: filter;
-  transition: filter 300ms;
-}
-.logo:hover {
-  filter: drop-shadow(0 0 2em #646cffaa);
-}
-.logo.react:hover {
-  filter: drop-shadow(0 0 2em #61dafbaa);
-}
-
-@keyframes logo-spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-@media (prefers-reduced-motion: no-preference) {
-  a:nth-of-type(2) .logo {
-    animation: logo-spin infinite 20s linear;
-  }
+  padding: 2rem 1rem; /* Reduced horizontal padding on small screens for better mobile use, while keeping vertical */
+  min-height: 100vh; /* Ensure full viewport height for proper footer placement and scrolling */
+  display: flex;
+  flex-direction: column;
+  text-align: left; /* Changed from center – professional dashboards are left-aligned for readability */
 }
 
 .card {
-  padding: 2em;
+  padding: 2rem;
+  border-radius: var(--radius, 0.75rem); /* Use the shared --radius variable from your Tailwind theme */
+  background-color: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
+  box-shadow: none; /* Removed any implicit shadows for minimalism */
+  transition: border-color 0.2s ease;
 }
 
+.card:hover {
+  border-color: hsl(var(--accent) / 0.4);
+}
+
+/* Removed .logo styles entirely */
+/* Reason: Hover drop-shadows and spinning animations feel playful and dated. 
+   For a modern, professional, minimalist dashboard, avoid decorative effects on logos.
+   If a logo is needed, style it inline with Tailwind classes (e.g., h-12 or h-16, no animation). */
+
+/* Removed @keyframes logo-spin and media query */
+/* Reason: Decorative infinite spin is distracting in a professional context and can cause accessibility issues (motion). 
+   The prefers-reduced-motion check was good, but removal is cleaner. */
+
+/* Kept .read-the-docs but updated color to match theme */
 .read-the-docs {
-  color: #888;
+  color: hsl(var(--muted-foreground));
+  font-size: 0.875rem;
+  margin-top: 1.5rem;
+}
+
+/* Optional: Add subtle focus styles for accessibility (not in original) */
+button:focus-visible,
+a:focus-visible {
+  outline: 2px solid hsl(var(--ring));
+  outline-offset: 2px;
+}
+
+/* Optional: Smooth scroll behavior for better UX */
+html {
+  scroll-behavior: smooth;
 }
