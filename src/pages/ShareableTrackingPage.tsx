@@ -17,8 +17,18 @@ import {
   User,
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
-import { Circle, MapContainer, Marker, Polyline, Popup, TileLayer, Tooltip, useMap } from "react-leaflet";
+import {
+  Circle,
+  MapContainer,
+  Marker,
+  Polyline,
+  Popup,
+  TileLayer,
+  Tooltip,
+  useMap,
+} from "react-leaflet";
 import { findDepotByName, DEPOTS } from "@/lib/depots";
+import { calculateRoadDistance, decodePolyline } from "@/lib/routing";
 import { useSearchParams } from "react-router-dom";
 
 // Fix Leaflet default icons
@@ -207,6 +217,10 @@ export default function ShareableTrackingPage() {
   const [vehicleError, setVehicleError] = useState<string | null>(null);
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
   const [loadingVehicle, setLoadingVehicle] = useState(false);
+  const [routeCoords, setRouteCoords] = useState<[number, number][]>([]);
+
+  // Move load declaration here, before any useEffect that uses it
+  const load = shareLink?.load;
 
   // Debug logging
   useEffect(() => {
@@ -468,6 +482,51 @@ export default function ShareableTrackingPage() {
     };
   }, [shareLink, loadingVehicle, fetchVehiclePosition]);
 
+  // Fetch road route when vehicle position or destination changes
+  useEffect(() => {
+    const fetchRoute = async () => {
+      if (!asset?.lastLatitude || !asset?.lastLongitude || !load?.destination) {
+        setRouteCoords([]);
+        return;
+      }
+
+      const destDepot = findDepotByName(load.destination);
+      if (!destDepot) {
+        setRouteCoords([]);
+        return;
+      }
+
+      try {
+        const result = await calculateRoadDistance(
+          asset.lastLatitude,
+          asset.lastLongitude,
+          destDepot.latitude,
+          destDepot.longitude,
+        );
+
+        if (result.geometry) {
+          const coords = decodePolyline(result.geometry);
+          setRouteCoords(coords);
+        } else {
+          // Fallback to straight line if no geometry
+          setRouteCoords([
+            [asset.lastLatitude, asset.lastLongitude],
+            [destDepot.latitude, destDepot.longitude],
+          ]);
+        }
+      } catch (err) {
+        console.error("Failed to fetch road route:", err);
+        // Fallback to straight line
+        setRouteCoords([
+          [asset.lastLatitude, asset.lastLongitude],
+          [destDepot.latitude, destDepot.longitude],
+        ]);
+      }
+    };
+
+    fetchRoute();
+  }, [asset?.lastLatitude, asset?.lastLongitude, load?.destination]);
+
   const defaultCenter: [number, number] = [-19.0, 31.0]; // Zimbabwe
 
   // Loading state
@@ -507,8 +566,6 @@ export default function ShareableTrackingPage() {
       </div>
     );
   }
-
-  const load = shareLink?.load;
 
   return (
     <div className="min-h-screen bg-gray-100">
@@ -795,22 +852,41 @@ export default function ShareableTrackingPage() {
                   </Marker>
 
                   {/* Route line to destination */}
+                  {routeCoords.length > 0 && (
+                    <Polyline
+                      positions={routeCoords}
+                      pathOptions={{
+                        color: "#4f46e5",
+                        weight: 4,
+                        opacity: 0.8,
+                      }}
+                    />
+                  )}
+
+                  {/* Destination marker and geofence */}
                   {load?.destination && (() => {
                     const destDepot = findDepotByName(load.destination);
                     if (!destDepot) return null;
                     return (
                       <>
-                        <Polyline
-                          positions={[[asset.lastLatitude!, asset.lastLongitude!], [destDepot.latitude, destDepot.longitude]]}
-                          pathOptions={{ color: "#4f46e5", weight: 3, dashArray: "10, 10", opacity: 0.8 }}
-                        />
-                        <Circle 
-                          center={[destDepot.latitude, destDepot.longitude]} 
+                        <Circle
+                          center={[destDepot.latitude, destDepot.longitude]}
                           radius={destDepot.radius || 500}
-                          pathOptions={{ color: "#059669", fillColor: "#059669", fillOpacity: 0.2, weight: 2 }}
+                          pathOptions={{
+                            color: "#059669",
+                            fillColor: "#059669",
+                            fillOpacity: 0.2,
+                            weight: 2,
+                          }}
                         />
-                        <Marker position={[destDepot.latitude, destDepot.longitude]}>
-                          <Tooltip permanent><span className="text-xs font-medium">{load.destination}</span></Tooltip>
+                        <Marker
+                          position={[destDepot.latitude, destDepot.longitude]}
+                        >
+                          <Tooltip permanent>
+                            <span className="text-xs font-medium">
+                              {load.destination}
+                            </span>
+                          </Tooltip>
                         </Marker>
                       </>
                     );

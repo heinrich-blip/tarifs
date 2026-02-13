@@ -5,6 +5,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useClientActiveLoads } from '@/hooks/useClientLoads';
 import { Load } from '@/hooks/useLoads';
 import { DEPOTS, findDepotByName } from '@/lib/depots';
+import { calculateRoadDistance, decodePolyline } from '@/lib/routing';
 import {
   authenticate,
   formatLastConnected,
@@ -164,6 +165,50 @@ function FitBounds({ assets, loads }: { assets: TelematicsAsset[]; loads: Load[]
   }, [assets, loads, map]);
 
   return null;
+}
+
+// Component to fetch and render road-following route line
+function RoadRoutePolyline({
+  originLat,
+  originLng,
+  destLat,
+  destLng,
+}: {
+  originLat: number;
+  originLng: number;
+  destLat: number;
+  destLng: number;
+}) {
+  const [routeCoords, setRouteCoords] = useState<[number, number][]>([]);
+
+  useEffect(() => {
+    const fetchRoute = async () => {
+      try {
+        const result = await calculateRoadDistance(originLat, originLng, destLat, destLng);
+        if (result.geometry) {
+          const coords = decodePolyline(result.geometry);
+          setRouteCoords(coords);
+        } else {
+          // Fallback to straight line
+          setRouteCoords([[originLat, originLng], [destLat, destLng]]);
+        }
+      } catch (err) {
+        console.error('Failed to fetch road route:', err);
+        // Fallback to straight line
+        setRouteCoords([[originLat, originLng], [destLat, destLng]]);
+      }
+    };
+    fetchRoute();
+  }, [originLat, originLng, destLat, destLng]);
+
+  if (routeCoords.length === 0) return null;
+
+  return (
+    <Polyline
+      positions={routeCoords}
+      pathOptions={{ color: "#4f46e5", weight: 4, opacity: 0.8 }}
+    />
+  );
 }
 
 export default function ClientLiveMapPage() {
@@ -472,11 +517,13 @@ export default function ClientLiveMapPage() {
                         </div>
                       </Popup>
                     </Marker>
-                    {/* Route line to destination */}
+                    {/* Road-following route line to destination */}
                     {destDepot && (
-                      <Polyline
-                        positions={[[asset.lastLatitude, asset.lastLongitude], [destDepot.latitude, destDepot.longitude]]}
-                        pathOptions={{ color: "#4f46e5", weight: 3, dashArray: "10, 10", opacity: 0.8 }}
+                      <RoadRoutePolyline
+                        originLat={asset.lastLatitude}
+                        originLng={asset.lastLongitude}
+                        destLat={destDepot.latitude}
+                        destLng={destDepot.longitude}
                       />
                     )}
                     </React.Fragment>

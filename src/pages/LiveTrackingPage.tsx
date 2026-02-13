@@ -19,6 +19,7 @@ import {
 } from "@/lib/api";
 import { DEPOTS } from "@/lib/depots";
 import { useCustomLocations } from "@/hooks/useCustomLocations";
+import { calculateRoadDistance, decodePolyline } from "@/lib/routing";
 import {
   authenticate,
   clearAuth,
@@ -270,6 +271,7 @@ export default function LiveTrackingPage() {
   const { data: customLocations = [] } = useCustomLocations();
   const [maximizeMap, setMaximizeMap] = useState(false);
   const [showRouteCalculator, setShowRouteCalculator] = useState(false);
+  const [routeCoords, setRouteCoords] = useState<[number, number][]>([]);
   const [selectedVehicleId, setSelectedVehicleId] = useState<number | null>(
     null,
   );
@@ -481,6 +483,58 @@ export default function LiveTrackingPage() {
     const intervalId = setInterval(fetchAssets, refreshInterval * 1000);
     return () => clearInterval(intervalId);
   }, [autoRefresh, authenticated, refreshInterval, fetchAssets]);
+
+  // Fetch road route when vehicle or destination geofence changes
+  useEffect(() => {
+    const fetchRoute = async () => {
+      const selectedVehicle = assets.find((a) => a.id === selectedVehicleId);
+      const selectedGeofence = geofences.find((g) => g.id === selectedGeofenceId);
+
+      if (!selectedVehicle?.lastLatitude || !selectedVehicle?.lastLongitude || !selectedGeofence) {
+        setRouteCoords([]);
+        return;
+      }
+
+      const destLat = selectedGeofence.centerLatitude ?? selectedGeofence.latitude ?? selectedGeofence.lat;
+      const destLng = selectedGeofence.centerLongitude ?? selectedGeofence.longitude ?? selectedGeofence.lng;
+
+      if (!destLat || !destLng) {
+        setRouteCoords([]);
+        return;
+      }
+
+      try {
+        const result = await calculateRoadDistance(
+          selectedVehicle.lastLatitude,
+          selectedVehicle.lastLongitude,
+          destLat,
+          destLng
+        );
+
+        if (result.geometry) {
+          const coords = decodePolyline(result.geometry);
+          setRouteCoords(coords);
+        } else {
+          // Fallback to straight line
+          setRouteCoords([
+            [selectedVehicle.lastLatitude, selectedVehicle.lastLongitude],
+            [destLat, destLng]
+          ]);
+        }
+      } catch (err) {
+        console.error('Failed to fetch road route:', err);
+        // Fallback to straight line
+        if (destLat && destLng) {
+          setRouteCoords([
+            [selectedVehicle.lastLatitude, selectedVehicle.lastLongitude],
+            [destLat, destLng]
+          ]);
+        }
+      }
+    };
+
+    fetchRoute();
+  }, [selectedVehicleId, selectedGeofenceId, assets, geofences]);
 
   const stats = useMemo(() => {
     const moving = assets.filter((a) => a.speedKmH >= 5 || a.inTrip).length;
@@ -1004,55 +1058,32 @@ export default function LiveTrackingPage() {
                       );
                     })}
 
-                  {/* Route Line */}
-                  {selectedVehicle &&
-                    selectedGeofence &&
-                    selectedVehicle.lastLatitude &&
-                    selectedVehicle.lastLongitude &&
-                    (() => {
-                      const destLat =
-                        selectedGeofence.latitude ??
-                        selectedGeofence.centerLatitude ??
-                        selectedGeofence.lat;
-                      const destLng =
-                        selectedGeofence.longitude ??
-                        selectedGeofence.centerLongitude ??
-                        selectedGeofence.lng;
-                      if (!destLat || !destLng) return null;
-
-                      return (
-                        <Polyline
-                          positions={[
-                            [
-                              selectedVehicle.lastLatitude,
-                              selectedVehicle.lastLongitude,
-                            ],
-                            [destLat, destLng],
-                          ]}
-                          pathOptions={{
-                            color: "#4f46e5",
-                            weight: 3,
-                            dashArray: "10, 10",
-                            opacity: 0.8,
-                          }}
-                        >
-                          <Tooltip permanent direction="center">
-                            <div className="text-xs font-medium">
-                              {etaResult ? (
-                                <>
-                                  <div>{etaResult.distanceFormatted}</div>
-                                  <div className="text-indigo-600">
-                                    ETA: {etaResult.etaFormatted}
-                                  </div>
-                                </>
-                              ) : (
-                                "Calculating..."
-                              )}
-                            </div>
-                          </Tooltip>
-                        </Polyline>
-                      );
-                    })()}
+                  {/* Road-following Route Line */}
+                  {routeCoords.length > 0 && (
+                    <Polyline
+                      positions={routeCoords}
+                      pathOptions={{
+                        color: "#4f46e5",
+                        weight: 4,
+                        opacity: 0.8,
+                      }}
+                    >
+                      <Tooltip permanent direction="center">
+                        <div className="text-xs font-medium">
+                          {etaResult ? (
+                            <>
+                              <div>{etaResult.distanceFormatted}</div>
+                              <div className="text-indigo-600">
+                                ETA: {etaResult.etaFormatted}
+                              </div>
+                            </>
+                          ) : (
+                            "Calculating..."
+                          )}
+                        </div>
+                      </Tooltip>
+                    </Polyline>
+                  )}
 
                   {/* Highlight selected geofence */}
                   {selectedGeofence &&
