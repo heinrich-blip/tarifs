@@ -18,6 +18,7 @@ import {
   type ActiveLoadForTracking,
 } from "@/lib/api";
 import { DEPOTS } from "@/lib/depots";
+import { useCustomLocations } from "@/hooks/useCustomLocations";
 import {
   authenticate,
   clearAuth,
@@ -265,6 +266,8 @@ export default function LiveTrackingPage() {
   const [geofences, setGeofences] = useState<TelematicsGeofence[]>([]);
   const [showGeofences, setShowGeofences] = useState(true);
   const [showDepots, setShowDepots] = useState(true);
+  const [showCustomLocations, setShowCustomLocations] = useState(true);
+  const { data: customLocations = [] } = useCustomLocations();
   const [maximizeMap, setMaximizeMap] = useState(false);
   const [showRouteCalculator, setShowRouteCalculator] = useState(false);
   const [selectedVehicleId, setSelectedVehicleId] = useState<number | null>(
@@ -925,6 +928,75 @@ export default function LiveTrackingPage() {
                               <div className="font-semibold">{depot.name}</div>
                               <div className="text-xs text-gray-500">
                                 {depot.type.charAt(0).toUpperCase() + depot.type.slice(1)}
+                              </div>
+                            </Tooltip>
+                          </Marker>
+                        </React.Fragment>
+                      );
+                    })}
+
+                  {/* Custom Location Markers (user-defined geofences) */}
+                  {showCustomLocations &&
+                    customLocations.map((loc) => {
+                      const locIcon = L.divIcon({
+                        className: "custom-location-marker",
+                        html: `
+                          <div style="
+                            background: #f97316;
+                            width: 26px;
+                            height: 26px;
+                            border-radius: 50%;
+                            border: 3px solid white;
+                            box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                          ">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                              <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/>
+                              <circle cx="12" cy="10" r="3"/>
+                            </svg>
+                          </div>
+                        `,
+                        iconSize: [26, 26],
+                        iconAnchor: [13, 13],
+                      });
+
+                      return (
+                        <React.Fragment key={loc.id}>
+                          <Circle
+                            center={[Number(loc.latitude), Number(loc.longitude)]}
+                            radius={loc.radius || 500}
+                            pathOptions={{
+                              color: '#f97316',
+                              fillColor: '#f97316',
+                              fillOpacity: 0.2,
+                              weight: 2,
+                              dashArray: '5, 5',
+                            }}
+                          />
+                          <Marker
+                            position={[Number(loc.latitude), Number(loc.longitude)]}
+                            icon={locIcon}
+                          >
+                            <Popup>
+                              <div className="p-1">
+                                <div className="font-bold text-base">{loc.name}</div>
+                                <div className="text-sm text-gray-600">
+                                  {loc.type.charAt(0).toUpperCase() + loc.type.slice(1)} • {loc.country}
+                                </div>
+                                <div className="text-xs text-gray-500 mt-1">
+                                  {Number(loc.latitude).toFixed(5)}, {Number(loc.longitude).toFixed(5)}
+                                </div>
+                                <div className="text-xs text-orange-600 mt-1 font-medium">
+                                  ★ Custom Location
+                                </div>
+                              </div>
+                            </Popup>
+                            <Tooltip permanent={false} direction="top">
+                              <div className="font-semibold">{loc.name}</div>
+                              <div className="text-xs text-orange-500">
+                                ★ Custom
                               </div>
                             </Tooltip>
                           </Marker>

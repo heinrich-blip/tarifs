@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useClientActiveLoads } from '@/hooks/useClientLoads';
 import { Load } from '@/hooks/useLoads';
-import { DEPOTS } from '@/lib/depots';
+import { DEPOTS, findDepotByName } from '@/lib/depots';
 import {
   authenticate,
   formatLastConnected,
@@ -27,11 +27,12 @@ import {
   RefreshCw,
   Truck,
 } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react'; // Updated import
 import {
   Circle,
   MapContainer,
   Marker,
+  Polyline,
   Popup,
   TileLayer,
   Tooltip,
@@ -414,8 +415,8 @@ export default function ClientLiveMapPage() {
                   }
 
                   return (
+                    <React.Fragment key={load.id}>
                     <Marker
-                      key={load.id}
                       position={[asset.lastLatitude, asset.lastLongitude]}
                       icon={createVehicleIcon(asset)}
                     >
@@ -471,6 +472,14 @@ export default function ClientLiveMapPage() {
                         </div>
                       </Popup>
                     </Marker>
+                    {/* Route line to destination */}
+                    {destDepot && (
+                      <Polyline
+                        positions={[[asset.lastLatitude, asset.lastLongitude], [destDepot.latitude, destDepot.longitude]]}
+                        pathOptions={{ color: "#4f46e5", weight: 3, dashArray: "10, 10", opacity: 0.8 }}
+                      />
+                    )}
+                    </React.Fragment>
                   );
                 })}
               </MapContainer>

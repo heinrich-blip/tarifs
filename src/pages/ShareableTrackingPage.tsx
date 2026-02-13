@@ -17,7 +17,8 @@ import {
   User,
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
-import { MapContainer, Marker, Popup, TileLayer, useMap } from "react-leaflet";
+import { Circle, MapContainer, Marker, Polyline, Popup, TileLayer, Tooltip, useMap } from "react-leaflet";
+import { findDepotByName, DEPOTS } from "@/lib/depots";
 import { useSearchParams } from "react-router-dom";
 
 // Fix Leaflet default icons
@@ -746,51 +747,75 @@ export default function ShareableTrackingPage() {
               asset.lastLatitude !== undefined &&
               asset.lastLongitude !== null &&
               asset.lastLongitude !== undefined ? (
-                <Marker
-                  position={[asset.lastLatitude, asset.lastLongitude]}
-                  icon={createVehicleIcon(asset)}
-                >
-                  <Popup>
-                    <div className="min-w-[200px]">
-                      <div className="font-bold text-lg mb-2">
-                        {asset.name ||
-                          load?.fleet_vehicle?.vehicle_id ||
-                          "Vehicle"}
-                      </div>
-                      <div className="space-y-1 text-sm">
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium">Status:</span>
-                          <span>
-                            {asset.inTrip ? "In Transit" : "Stationary"}
-                          </span>
+                <>
+                  <Marker
+                    position={[asset.lastLatitude, asset.lastLongitude]}
+                    icon={createVehicleIcon(asset)}
+                  >
+                    <Popup>
+                      <div className="min-w-[200px]">
+                        <div className="font-bold text-lg mb-2">
+                          {asset.name ||
+                            load?.fleet_vehicle?.vehicle_id ||
+                            "Vehicle"}
                         </div>
-                        {asset.speedKmH > 0 && (
+                        <div className="space-y-1 text-sm">
                           <div className="flex items-center gap-2">
-                            <span className="font-medium">Speed:</span>
-                            <span>{asset.speedKmH} km/h</span>
-                          </div>
-                        )}
-                        {(asset.heading || asset.heading === 0) && (
-                          <div className="flex items-center gap-2">
-                            <span className="font-medium">Heading:</span>
+                            <span className="font-medium">Status:</span>
                             <span>
-                              {getHeadingDirection(asset.heading)} (
-                              {asset.heading}°)
+                              {asset.inTrip ? "In Transit" : "Stationary"}
                             </span>
                           </div>
-                        )}
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium">Last update:</span>
-                          <span>
-                            {lastUpdate
-                              ? lastUpdate.toLocaleTimeString()
-                              : "Unknown"}
-                          </span>
+                          {asset.speedKmH > 0 && (
+                            <div className="flex items-center gap-2">
+                              <span className="font-medium">Speed:</span>
+                              <span>{asset.speedKmH} km/h</span>
+                            </div>
+                          )}
+                          {(asset.heading || asset.heading === 0) && (
+                            <div className="flex items-center gap-2">
+                              <span className="font-medium">Heading:</span>
+                              <span>
+                                {getHeadingDirection(asset.heading)} (
+                                {asset.heading}°)
+                              </span>
+                            </div>
+                          )}
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium">Last update:</span>
+                            <span>
+                              {lastUpdate
+                                ? lastUpdate.toLocaleTimeString()
+                                : "Unknown"}
+                            </span>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  </Popup>
-                </Marker>
+                    </Popup>
+                  </Marker>
+
+                  {/* Route line to destination */}
+                  {load?.destination && (() => {
+                    const destDepot = findDepotByName(load.destination);
+                    if (!destDepot) return null;
+                    return (
+                      <>
+                        <Polyline
+                          positions={[[asset.lastLatitude!, asset.lastLongitude!], [destDepot.latitude, destDepot.longitude]]}
+                          pathOptions={{ color: "#4f46e5", weight: 3, dashArray: "10, 10", opacity: 0.8 }}
+                        />
+                        <Circle 
+                          center={[destDepot.latitude, destDepot.longitude]} 
+                          radius={destDepot.radius || 500}
+                          pathOptions={{ color: "#059669", fillColor: "#059669", fillOpacity: 0.2, weight: 2 }}
+                        />
+                        <Marker position={[destDepot.latitude, destDepot.longitude]}>
+                          <Tooltip permanent><span className="text-xs font-medium">{load.destination}</span></Tooltip>
+                        </Marker>
+                      </>
+                    );
+                  })()}
+                </>
               ) : (
                 asset && (
                   <div className="leaflet-top leaflet-right">
