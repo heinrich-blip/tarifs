@@ -87,6 +87,124 @@ import { z } from "zod";
 // Import the missing component or define it
 import { EditThirdPartyLoadDialog } from "@/components/loads/EditThirdPartyLoadDialog";
 
+// Depot selection imports
+import { DEPOTS } from "@/constants/depots";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import { Check, ChevronsUpDown } from "lucide-react";
+import { calculateRoadDistance, formatRouteDistance, formatRouteDuration } from "@/lib/routing";
+import { useCustomLocations, CustomLocation } from "@/hooks/useCustomLocations";
+import { AddLocationDialog } from "@/components/tracking/AddLocationDialog";
+
+// Location type combining DEPOTS and custom locations
+interface LocationItem {
+  id: string;
+  name: string;
+  type: string;
+  isCustom?: boolean;
+}
+
+// Depot Combobox Component for selecting origin/destination (includes custom locations)
+const DepotCombobox: React.FC<{
+  value: string;
+  onChange: (value: string) => void;
+  placeholder?: string;
+  customLocations?: CustomLocation[];
+}> = ({ value, onChange, placeholder = "Select a depot...", customLocations = [] }) => {
+  const [open, setOpen] = useState(false);
+
+  // Merge DEPOTS and custom locations, grouped by country
+  const locationsByCountry = useMemo(() => {
+    const map: Record<string, LocationItem[]> = {};
+    
+    // Add static DEPOTS
+    DEPOTS.forEach((depot) => {
+      const key = depot.country;
+      if (!map[key]) map[key] = [];
+      map[key].push({ id: depot.id, name: depot.name, type: depot.type });
+    });
+    
+    // Add custom locations
+    customLocations.forEach((loc) => {
+      const key = loc.country;
+      if (!map[key]) map[key] = [];
+      map[key].push({ id: loc.id, name: loc.name, type: loc.type, isCustom: true });
+    });
+    
+    return map;
+  }, [customLocations]);
+
+  // All locations for finding selected value
+  const allLocations = useMemo(() => {
+    const all: LocationItem[] = DEPOTS.map(d => ({ id: d.id, name: d.name, type: d.type }));
+    customLocations.forEach(loc => {
+      all.push({ id: loc.id, name: loc.name, type: loc.type, isCustom: true });
+    });
+    return all;
+  }, [customLocations]);
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          role="combobox"
+          aria-expanded={open}
+          className="w-full justify-between font-normal"
+        >
+          {value
+            ? allLocations.find((loc) => loc.name === value)?.name ?? value
+            : placeholder}
+          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-full p-0 max-w-[--radix-popover-trigger-width]">
+        <Command>
+          <CommandInput placeholder="Search locations..." />
+          <CommandList>
+            <CommandEmpty>No location found.</CommandEmpty>
+            {Object.keys(locationsByCountry)
+              .sort()
+              .map((country) => (
+                <CommandGroup key={country} heading={country}>
+                  {locationsByCountry[country]
+                    .sort((a, b) => a.name.localeCompare(b.name))
+                    .map((loc) => (
+                      <CommandItem
+                        key={loc.id}
+                        value={loc.name}
+                        onSelect={() => {
+                          onChange(loc.name);
+                          setOpen(false);
+                        }}
+                      >
+                        <Check
+                          className={cn(
+                            "mr-2 h-4 w-4",
+                            value === loc.name ? "opacity-100" : "opacity-0"
+                          )}
+                        />
+                        {loc.name}
+                        <span className="ml-auto text-xs text-muted-foreground">
+                          {loc.isCustom ? `★ ${loc.type}` : loc.type}
+                        </span>
+                      </CommandItem>
+                    ))}
+                </CommandGroup>
+              ))}
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
+};
+
 const formSchema = z.object({
   priority: z.enum(["high", "medium", "low"]),
   linkedLoadId: z.string().optional(),
@@ -122,6 +240,7 @@ export default function ThirdPartyLoadsPage() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [selectedLoad, setSelectedLoad] = useState<Load | null>(null);
   const [createClientDialogOpen, setCreateClientDialogOpen] = useState(false);
+  const [addLocationDialogOpen, setAddLocationDialogOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [originFilter, setOriginFilter] = useState("all");
@@ -137,6 +256,7 @@ export default function ThirdPartyLoadsPage() {
   const { data: clients = [] } = useClients();
   const { data: fleetVehicles = [] } = useFleetVehicles();
   const { data: drivers = [] } = useDrivers();
+  const { data: customLocations = [] } = useCustomLocations();
   const createLoad = useCreateLoad();
   const updateLoad = useUpdateLoad();
   const deleteLoad = useDeleteLoad();
@@ -299,6 +419,14 @@ export default function ThirdPartyLoadsPage() {
             </p>
           </div>
           <div className="flex items-center gap-3">
+            <Button
+              variant="outline"
+              onClick={() => setAddLocationDialogOpen(true)}
+              className="gap-2"
+            >
+              <MapPin className="h-4 w-4" />
+              Add Location
+            </Button>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
@@ -554,9 +682,14 @@ export default function ThirdPartyLoadsPage() {
                     name="loadingPlaceName"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Place Name</FormLabel>
+                        <FormLabel>Depot / Location</FormLabel>
                         <FormControl>
-                          <Input placeholder="e.g., Warehouse A" {...field} />
+                          <DepotCombobox 
+                            value={field.value} 
+                            onChange={field.onChange}
+                            placeholder="Select loading depot..."
+                            customLocations={customLocations}
+                          />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -569,7 +702,7 @@ export default function ThirdPartyLoadsPage() {
                       <FormItem>
                         <FormLabel>Address (Optional)</FormLabel>
                         <FormControl>
-                          <Input placeholder="Full address" {...field} />
+                          <Input placeholder="Custom address (overrides depot)" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -624,9 +757,14 @@ export default function ThirdPartyLoadsPage() {
                     name="offloadingPlaceName"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Place Name</FormLabel>
+                        <FormLabel>Depot / Location</FormLabel>
                         <FormControl>
-                          <Input placeholder="e.g., Customer Site" {...field} />
+                          <DepotCombobox 
+                            value={field.value} 
+                            onChange={field.onChange}
+                            placeholder="Select offloading depot..."
+                            customLocations={customLocations}
+                          />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -639,7 +777,7 @@ export default function ThirdPartyLoadsPage() {
                       <FormItem>
                         <FormLabel>Address (Optional)</FormLabel>
                         <FormControl>
-                          <Input placeholder="Full address" {...field} />
+                          <Input placeholder="Custom address (overrides depot)" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -846,6 +984,12 @@ export default function ThirdPartyLoadsPage() {
         open={deliveryDialogOpen}
         onOpenChange={setDeliveryDialogOpen}
         load={selectedLoad}
+      />
+
+      {/* Add Location Dialog */}
+      <AddLocationDialog
+        open={addLocationDialogOpen}
+        onOpenChange={setAddLocationDialogOpen}
       />
     </MainLayout>
   );

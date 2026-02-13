@@ -19,6 +19,7 @@ import NotFound from "./pages/NotFound";
 import ReportsPage from "./pages/ReportsPage";
 import ShareableTrackingPage from "./pages/ShareableTrackingPage";
 import ThirdPartyLoadsPage from "./pages/ThirdPartyLoadsPage";
+import ClientDashboardPage from "./pages/client-dashboard/ClientDashboardPage";
 
 const queryClient = new QueryClient();
 
@@ -32,6 +33,8 @@ const App = () => (
           <Routes>
             <Route path="/login" element={<LoginPage />} />
             <Route path="/track" element={<ShareableTrackingPage />} />
+            {/* Public client portal - no authentication required */}
+            <Route path="/portal/:clientId/*" element={<ClientDashboardPage />} />
             <Route
               path="/"
               element={
@@ -77,6 +80,14 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <ClientsPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/customers/:clientId/*"
+              element={
+                <ProtectedRoute>
+                  <ClientDashboardPage />
                 </ProtectedRoute>
               }
             />

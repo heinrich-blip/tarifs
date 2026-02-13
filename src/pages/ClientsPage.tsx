@@ -40,6 +40,8 @@ import { format, parseISO } from 'date-fns';
 import
     {
         Building2,
+        Eye,
+        Link2,
         Loader2,
         Mail,
         MoreHorizontal,
@@ -52,6 +54,8 @@ import
         User,
     } from 'lucide-react';
 import { useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
+import { toast } from '@/hooks/use-toast';
 
 // Parse time_window to get customer ID
 function getCustomerIdFromLoad(timeWindow: string): string | null {
@@ -118,6 +122,22 @@ export default function ClientsPage() {
         setDeleteDialogOpen(false);
         setSelectedClient(null);
       },
+    });
+  };
+
+  const copyPortalLink = (clientId: string, clientName: string) => {
+    const portalUrl = `${window.location.origin}/portal/${clientId}`;
+    navigator.clipboard.writeText(portalUrl).then(() => {
+      toast({
+        title: 'Portal link copied!',
+        description: `Share this link with ${clientName} to give them access to their portal.`,
+      });
+    }).catch(() => {
+      toast({
+        title: 'Failed to copy',
+        description: 'Please try again or copy manually.',
+        variant: 'destructive',
+      });
     });
   };
 
@@ -317,6 +337,17 @@ export default function ClientsPage() {
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
+                              <DropdownMenuItem asChild>
+                                <Link to={`/customers/${client.id}`} className="flex items-center">
+                                  <Eye className="h-4 w-4 mr-2" />
+                                  View Dashboard
+                                </Link>
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => copyPortalLink(client.id, client.name)}>
+                                <Link2 className="h-4 w-4 mr-2" />
+                                Copy Portal Link
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
                               <DropdownMenuItem onClick={() => handleEdit(client)}>
                                 <Pencil className="h-4 w-4 mr-2" />
                                 Edit Customer
